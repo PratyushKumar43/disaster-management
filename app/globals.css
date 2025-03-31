@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 60 100% 98%;
+    --foreground: 74 100% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 74 100% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 74 100% 10%;
+
+    --primary: 74 100% 45%;
+    --primary-foreground: 74 100% 98%;
+
+    --secondary: 74 70% 95%;
+    --secondary-foreground: 74 100% 20%;
+
+    --muted: 74 70% 95%;
+    --muted-foreground: 74 30% 30%;
+
+    --accent: 74 70% 95%;
+    --accent-foreground: 74 100% 20%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 74 30% 90%;
+    --input: 74 30% 90%;
+    --ring: 74 100% 45%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 3%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 3%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 74 100% 45%;
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 74 30% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 65%;
+
+    --accent: 74 30% 15%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 74 100% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom animations */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
