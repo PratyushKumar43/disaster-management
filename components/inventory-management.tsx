@@ -52,210 +52,61 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Menu, Building, BarChart3, Settings } from "lucide-react"
+import { 
+  getInventoryItems, 
+  createInventoryItem, 
+  deleteInventoryItem, 
+  getUniqueStates, 
+  getUniqueDistricts, 
+  getUniqueDepartmentTypes 
+} from "@/backend/inventory"
+import type { InventoryItem } from "@/backend/inventory"
+import { checkSupabaseConnection } from "@/backend/supabase"
+import { createClient } from "@supabase/supabase-js"
+import { DataLoadingProgress } from "@/components/DataLoadingProgress"
 
 // Types
 interface Department {
-  id: string
-  name: string
-  type: string
-  address: string
-  contactPerson: string
-  contactNumber: string
-  contactEmail: string
-  districtId: string
+  id: string;
+  name: string;
+  type: string;
+  address: string;
+  contactPerson: string;
+  contactNumber: string;
+  contactEmail: string;
+  district: string;
 }
 
 interface District {
-  id: string
-  name: string
-  stateId: string
+  id: string;
+  name: string;
+  state: string;
 }
 
 interface State {
-  id: string
-  name: string
+  id: string;
+  name: string;
 }
-
-interface InventoryItem {
-  id: string
-  itemCode: string
-  itemName: string
-  quantity: number
-  source: string
-  departmentId: string
-  departmentName: string
-  districtId: string
-  districtName: string
-  stateId: string
-  stateName: string
-}
-
-// Mock data
-const mockStates: State[] = [
-  { id: "s1", name: "Maharashtra" },
-  { id: "s2", name: "Karnataka" },
-  { id: "s3", name: "Tamil Nadu" },
-  { id: "s4", name: "Gujarat" },
-]
-
-const mockDistricts: District[] = [
-  { id: "d1", name: "Mumbai", stateId: "s1" },
-  { id: "d2", name: "Pune", stateId: "s1" },
-  { id: "d3", name: "Bangalore", stateId: "s2" },
-  { id: "d4", name: "Mysore", stateId: "s2" },
-  { id: "d5", name: "Chennai", stateId: "s3" },
-  { id: "d6", name: "Coimbatore", stateId: "s3" },
-  { id: "d7", name: "Ahmedabad", stateId: "s4" },
-  { id: "d8", name: "Surat", stateId: "s4" },
-]
-
-const mockDepartments: Department[] = [
-  {
-    id: "dep1",
-    name: "Health Department",
-    type: "Government",
-    address: "123 Health St, Mumbai",
-    contactPerson: "Dr. Sharma",
-    contactNumber: "9876543210",
-    contactEmail: "health@mumbai.gov.in",
-    districtId: "d1",
-  },
-  {
-    id: "dep2",
-    name: "Education Department",
-    type: "Government",
-    address: "456 Education Rd, Mumbai",
-    contactPerson: "Mr. Patil",
-    contactNumber: "9876543211",
-    contactEmail: "education@mumbai.gov.in",
-    districtId: "d1",
-  },
-  {
-    id: "dep3",
-    name: "Health Department",
-    type: "Government",
-    address: "789 Health Ave, Pune",
-    contactPerson: "Dr. Joshi",
-    contactNumber: "9876543212",
-    contactEmail: "health@pune.gov.in",
-    districtId: "d2",
-  },
-  {
-    id: "dep4",
-    name: "IT Department",
-    type: "Corporate",
-    address: "101 Tech Park, Bangalore",
-    contactPerson: "Ms. Reddy",
-    contactNumber: "9876543213",
-    contactEmail: "it@bangalore.gov.in",
-    districtId: "d3",
-  },
-  {
-    id: "dep5",
-    name: "Agriculture Department",
-    type: "Government",
-    address: "202 Farm Rd, Mysore",
-    contactPerson: "Mr. Kumar",
-    contactNumber: "9876543214",
-    contactEmail: "agri@mysore.gov.in",
-    districtId: "d4",
-  },
-]
-
-const mockInventoryItems: InventoryItem[] = [
-  {
-    id: "i1",
-    itemCode: "MED001",
-    itemName: "Paracetamol",
-    quantity: 5,
-    source: "Central Supply",
-    departmentId: "dep1",
-    departmentName: "Health Department",
-    districtId: "d1",
-    districtName: "Mumbai",
-    stateId: "s1",
-    stateName: "Maharashtra",
-  },
-  {
-    id: "i2",
-    itemCode: "MED002",
-    itemName: "Antibiotics",
-    quantity: 15,
-    source: "State Supply",
-    departmentId: "dep1",
-    departmentName: "Health Department",
-    districtId: "d1",
-    districtName: "Mumbai",
-    stateId: "s1",
-    stateName: "Maharashtra",
-  },
-  {
-    id: "i3",
-    itemCode: "EDU001",
-    itemName: "Textbooks",
-    quantity: 100,
-    source: "State Supply",
-    departmentId: "dep2",
-    departmentName: "Education Department",
-    districtId: "d1",
-    districtName: "Mumbai",
-    stateId: "s1",
-    stateName: "Maharashtra",
-  },
-  {
-    id: "i4",
-    itemCode: "MED003",
-    itemName: "Surgical Masks",
-    quantity: 8,
-    source: "Local Purchase",
-    departmentId: "dep3",
-    departmentName: "Health Department",
-    districtId: "d2",
-    districtName: "Pune",
-    stateId: "s1",
-    stateName: "Maharashtra",
-  },
-  {
-    id: "i5",
-    itemCode: "IT001",
-    itemName: "Laptops",
-    quantity: 25,
-    source: "Central Supply",
-    departmentId: "dep4",
-    departmentName: "IT Department",
-    districtId: "d3",
-    districtName: "Bangalore",
-    stateId: "s2",
-    stateName: "Karnataka",
-  },
-  {
-    id: "i6",
-    itemCode: "AGR001",
-    itemName: "Fertilizers",
-    quantity: 50,
-    source: "State Supply",
-    departmentId: "dep5",
-    departmentName: "Agriculture Department",
-    districtId: "d4",
-    districtName: "Mysore",
-    stateId: "s2",
-    stateName: "Karnataka",
-  },
-]
 
 export default function InventoryManagement() {
   const { toast } = useToast()
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(mockInventoryItems)
-  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>(mockInventoryItems)
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
+  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // States for filter dropdowns
+  const [states, setStates] = useState<string[]>([])
+  const [districts, setDistricts] = useState<string[]>([])
+  const [departments, setDepartments] = useState<string[]>([])
 
   // Filter states
-  const [selectedState, setSelectedState] = useState<string>("")
-  const [selectedDistrict, setSelectedDistrict] = useState<string>("")
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("")
+  const [selectedState, setSelectedState] = useState<string>("all")
+  const [selectedDistrict, setSelectedDistrict] = useState<string>("all")
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("all")
 
   // Available options based on filters
-  const [availableDistricts, setAvailableDistricts] = useState<District[]>(mockDistricts)
-  const [availableDepartments, setAvailableDepartments] = useState<Department[]>(mockDepartments)
+  const [availableDistricts, setAvailableDistricts] = useState<string[]>([])
+  const [availableDepartments, setAvailableDepartments] = useState<string[]>([])
 
   // Modal states
   const [addModalOpen, setAddModalOpen] = useState(false)
@@ -264,173 +115,835 @@ export default function InventoryManagement() {
 
   // Form states
   const [newItem, setNewItem] = useState({
-    itemCode: "",
-    itemName: "",
+    state: "",
+    district: "",
+    department_type: "",
+    department_name: "",
+    item_code: 0,
+    item_name: "",
     quantity: 0,
-    source: "",
-    stateId: "",
-    districtId: "",
-    departmentId: "",
   })
 
-  // Loading state
-  const [isLoading, setIsLoading] = useState(false)
+  // Add these state variables in the component
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
+  const [itemsPerPage, setItemsPerPage] = useState(25)
+  const pageCount = Math.ceil(filteredItems.length / itemsPerPage)
+
+  // Add this new state
+  const [connectionStatus, setConnectionStatus] = useState<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    hasData?: boolean;
+  } | null>(null);
+
+  // State for full data storage
+  const [fullInventoryData, setFullInventoryData] = useState<InventoryItem[]>([]);
+
+  // State for loading filters
+  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
+
+  // State for loading progress
+  const [loadingProgress, setLoadingProgress] = useState({ 
+    current: 0, 
+    total: 0, 
+    percentage: 0 
+  });
+
+  // Initial data loading
+  useEffect(() => {
+    console.log("Initial component mount - loading data");
+    
+    // Fetch data and filter options
+    fetchAllInventoryData();
+    fetchFilterOptions();
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch inventory items on component mount
+  useEffect(() => {
+    try {
+      console.log("Component mounted, fetching data...");
+      
+      // Check Supabase connection first
+      checkSupabaseConnection().then(status => {
+        console.log("Supabase connection status:", status);
+        setConnectionStatus(status);
+        
+        if (status.success) {
+          // Fetch filter options and data separately
+          fetchAllFilterOptions();
+          fetchAllInventoryData();
+        } else {
+          toast({
+            title: "Connection Error",
+            description: `Failed to connect to database: ${status.error}`,
+            variant: "destructive",
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Error in initial data fetch:", error);
+      toast({
+        title: "Error",
+        description: "Failed to initialize component data",
+        variant: "destructive",
+      });
+    }
+  }, []);
+
+  // Function to fetch ALL inventory data and extract filter options
+  const fetchAllInventoryData = async () => {
+    try {
+      setIsLoading(true);
+      console.log("Fetching inventory data with pagination");
+      
+      // Show loading notification
+      toast({
+        title: "Loading",
+        description: "Fetching inventory data... This might take a moment for large datasets.",
+      });
+      
+      // Get total count to estimate progress
+      let totalEstimated = 0;
+      let items: any[] = [];
+      
+      try {
+        // Use backend function to get total count
+        const countResponse = await fetch('/api/inventory-count');
+        const countData = await countResponse.json();
+        
+        if (countData.success) {
+          totalEstimated = countData.count || 0;
+          console.log(`Total estimated items: ${totalEstimated}`);
+          setLoadingProgress({ current: 0, total: totalEstimated, percentage: 0 });
+        } else {
+          console.warn("Could not get exact count, using estimate");
+          totalEstimated = 300000; // Fallback estimate
+        }
+      } catch (error) {
+        console.error("Error fetching count:", error);
+        totalEstimated = 300000; // Fallback estimate
+      }
+      
+      // Fetch data in chunks of 10,000 records (reduced from 100,000)
+      const pageSize = 10000;
+      const totalPages = Math.ceil(totalEstimated / pageSize);
+      console.log(`Will fetch data in ${totalPages} chunks of ${pageSize} items each`);
+      
+      // Track retries and successful chunks
+      let retries = 0;
+      let successfulChunks = 0;
+      const maxRetries = 3;
+      
+      for (let page = 0; page < totalPages; page++) {
+        const offset = page * pageSize;
+        console.log(`Fetching chunk ${page + 1}/${totalPages} (items ${offset} to ${offset + pageSize - 1})`);
+        
+        setLoadingProgress({ 
+          current: offset, 
+          total: totalEstimated, 
+          percentage: Math.round((offset / totalEstimated) * 100) 
+        });
+        
+        let chunkSuccess = false;
+        let attempts = 0;
+        
+        // Try up to maxRetries times for each chunk
+        while (!chunkSuccess && attempts < maxRetries) {
+          try {
+            attempts++;
+            // Fetch items with the current offset and limit
+            const response = await fetch(`/api/inventory?offset=${offset}&limit=${pageSize}`);
+            
+            if (!response.ok) {
+              console.error(`Error fetching chunk ${page + 1} (attempt ${attempts}): HTTP ${response.status}`);
+              
+              if (attempts >= maxRetries) {
+                console.warn(`Failed to fetch chunk ${page + 1} after ${maxRetries} attempts, continuing to next chunk`);
+                break;
+              }
+              
+              // Wait before retrying (exponential backoff)
+              await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts)));
+              continue;
+            }
+            
+            const data = await response.json();
+            
+            if (data.success && data.items && data.items.length > 0) {
+              console.log(`Received ${data.items.length} items in chunk ${page + 1}`);
+              items = [...items, ...data.items];
+              
+              // Update progress
+              setLoadingProgress({ 
+                current: items.length, 
+                total: totalEstimated, 
+                percentage: Math.round((items.length / totalEstimated) * 100)
+              });
+              
+              chunkSuccess = true;
+              successfulChunks++;
+              
+              // If we got fewer items than requested, we've reached the end
+              if (data.items.length < pageSize) {
+                console.log(`Reached end of data at ${items.length} items (less than page size)`);
+                page = totalPages; // Exit the outer loop
+                break;
+              }
+            } else {
+              console.log(`No more data in chunk ${page + 1}`);
+              page = totalPages; // Exit the outer loop
+              break; // No more data
+            }
+          } catch (error) {
+            console.error(`Error fetching chunk ${page + 1} (attempt ${attempts}):`, error);
+            
+            if (attempts >= maxRetries) {
+              console.warn(`Failed to fetch chunk ${page + 1} after ${maxRetries} attempts, continuing to next chunk`);
+              retries++;
+              break;
+            }
+            
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempts)));
+          }
+        }
+        
+        // If we've had 3 consecutive chunk failures, break out
+        if (retries >= 3 && successfulChunks === 0) {
+          console.error("Too many consecutive failures, aborting data fetch");
+          break;
+        }
+      }
+      
+      console.log(`Received ${items.length} items in total`);
+      
+      // Update progress to indicate data is loaded
+      setLoadingProgress({ 
+        current: items.length, 
+        total: items.length, 
+        percentage: 100 
+      });
+      
+      if (items && items.length > 0) {
+        // Ensure all items have the required fields
+        const processedItems = items.map(item => ({
+          ...item,
+          id: item.id || `temp-${Date.now()}-${Math.random()}`,
+          created_at: item.created_at || new Date().toISOString()
+        }));
+        
+        // Store dataset for filtering
+        setFullInventoryData(processedItems);
+        
+        // Set initial display data (all items)
+        setInventoryItems(processedItems);
+        setFilteredItems(processedItems);
+        setTotalItems(processedItems.length);
+        
+        // Extract unique values for filters from the full dataset
+        const uniqueStates = [...new Set(processedItems.map(item => item.state))]
+          .filter(Boolean)
+          .sort();
+          
+        const uniqueDistricts = [...new Set(processedItems.map(item => item.district))]
+          .filter(Boolean)
+          .sort();
+          
+        const uniqueDeptTypes = [...new Set(processedItems.map(item => item.department_type))]
+          .filter(Boolean)
+          .sort();
+        
+        console.log(`Extracted from full dataset: ${uniqueStates.length} states, ${uniqueDistricts.length} districts, ${uniqueDeptTypes.length} department types`);
+        console.log("First 5 states:", uniqueStates.slice(0, 5));
+        console.log("First 5 districts:", uniqueDistricts.slice(0, 5));
+        console.log("First 5 department types:", uniqueDeptTypes.slice(0, 5));
+        
+        // Update state with extracted values
+        setStates(uniqueStates);
+        setDistricts(uniqueDistricts);
+        setAvailableDistricts(uniqueDistricts);
+        setDepartments(uniqueDeptTypes);
+        setAvailableDepartments(uniqueDeptTypes);
+        
+        toast({
+          title: "Success",
+          description: `Loaded ${processedItems.length} inventory items with ${uniqueStates.length} states, ${uniqueDistricts.length} districts, and ${uniqueDeptTypes.length} department types`,
+        });
+      } else {
+        console.error("No inventory items found in database");
+        
+        // Try to load filter options directly if we couldn't get items
+        fetchAllFilterOptionsFromApi();
+        
+        setFullInventoryData([]);
+        setInventoryItems([]);
+        setFilteredItems([]);
+        setTotalItems(0);
+        
+        toast({
+          title: "Information",
+          description: "No inventory items found in the database.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching inventory data:", error);
+      
+      // Try to load filter options directly if we couldn't get items
+      fetchAllFilterOptionsFromApi();
+      
+      toast({
+        title: "Error",
+        description: "Failed to load complete inventory data. Attempting to load filter options separately.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch all filter options at once from the new API endpoint
+  const fetchAllFilterOptionsFromApi = async () => {
+    try {
+      console.log("Fetching all filter options at once from API...");
+      const response = await fetch('/api/get-filter-options');
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log(`API returned filter options: ${data.counts.states} states, ${data.counts.districts} districts, ${data.counts.departmentTypes} department types`);
+        
+        // Update all filter options at once
+        if (data.states && data.states.length > 0) {
+          setStates(data.states);
+          console.log(`Set ${data.states.length} states. First few: ${data.states.slice(0, 5).join(', ')}...`);
+        }
+        
+        if (data.districts && data.districts.length > 0) {
+          setDistricts(data.districts);
+          setAvailableDistricts(data.districts);
+          console.log(`Set ${data.districts.length} districts. First few: ${data.districts.slice(0, 5).join(', ')}...`);
+        }
+        
+        if (data.departmentTypes && data.departmentTypes.length > 0) {
+          setDepartments(data.departmentTypes);
+          setAvailableDepartments(data.departmentTypes);
+          console.log(`Set ${data.departmentTypes.length} department types. First few: ${data.departmentTypes.slice(0, 5).join(', ')}...`);
+        }
+        
+        return true;
+      } else {
+        console.error("API returned an error:", data);
+        return false;
+      }
+    } catch (error) {
+      console.error("Error fetching all filter options from API:", error);
+      return false;
+    }
+  }
+  
+  // Fetch filter options - now tries new combined endpoint first
+  const fetchFilterOptions = async () => {
+    try {
+      console.log("Fetching filter options...");
+      setIsLoadingFilters(true);
+      
+      // Try the new combined endpoint first
+      const success = await fetchAllFilterOptionsFromApi();
+      
+      if (success) {
+        console.log("Successfully loaded all filter options at once");
+        setIsLoadingFilters(false);
+        return;
+      }
+      
+      // Fallback to individual API calls if the combined endpoint fails
+      console.log("Falling back to individual API calls for filter options");
+      
+      // Fetch states
+      await fetchStatesFromApi();
+      
+      // Fetch all districts
+      await fetchDistrictsFromApi();
+      
+      // Fetch all department types via backend
+      try {
+        const deptTypes = await getUniqueDepartmentTypes();
+        if (deptTypes && deptTypes.length > 0) {
+          console.log(`Found ${deptTypes.length} department types`);
+          setDepartments(deptTypes);
+          setAvailableDepartments(deptTypes);
+        } else {
+          console.log("No department types found, using default values");
+          const defaultDeptTypes = ["Fire", "Health", "Police", "Other", "PWD"];
+          setDepartments(defaultDeptTypes);
+          setAvailableDepartments(defaultDeptTypes);
+        }
+      } catch (error) {
+        console.error("Error fetching department types:", error);
+        const defaultDeptTypes = ["Fire", "Health", "Police", "Other", "PWD"];
+        setDepartments(defaultDeptTypes);
+        setAvailableDepartments(defaultDeptTypes);
+      }
+      
+      setIsLoadingFilters(false);
+    } catch (error) {
+      console.error("Error fetching filter options:", error);
+      
+      setIsLoadingFilters(false);
+      toast({
+        title: "Error",
+        description: "Failed to load filter options. Using default values.",
+        variant: "destructive",
+      });
+      
+      // Set default values for critical UI elements
+      const defaultStates = ["Rajasthan", "Assam", "Kerala", "Andhra Pradesh"];
+      const defaultDistricts = ["Ajmer", "Bongaigaon", "Charaideo", "Darrang", "Dhubri"];
+      const defaultDeptTypes = ["Fire", "Health", "Police", "Other", "PWD"];
+      
+      setStates(defaultStates);
+      setDistricts(defaultDistricts);
+      setAvailableDistricts(defaultDistricts);
+      setDepartments(defaultDeptTypes);
+      setAvailableDepartments(defaultDeptTypes);
+    }
+  }
+
+  // Backup method to fetch states from API
+  const fetchStatesFromApi = async () => {
+    try {
+      console.log("Fetching all states from API endpoint...");
+      const response = await fetch('/api/get-states');
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.states && data.states.length > 0) {
+        console.log(`API returned ${data.states.length} states. First few: ${data.states.slice(0, 5).join(', ')}...`);
+        setStates(data.states);
+        return data.states;
+      } else {
+        console.error("API returned no states or encountered an error:", data);
+        const defaultStates = ["Rajasthan", "Assam", "Kerala", "Andhra Pradesh"];
+        setStates(defaultStates);
+        return defaultStates;
+      }
+    } catch (error) {
+      console.error("Error fetching states from API:", error);
+      const defaultStates = ["Rajasthan", "Assam", "Kerala", "Andhra Pradesh"];
+      setStates(defaultStates);
+      return defaultStates;
+    }
+  }
+  
+  // Backup method to fetch districts from API
+  const fetchDistrictsFromApi = async (stateFilter?: string) => {
+    try {
+      console.log(`Fetching all districts from API endpoint...${stateFilter ? ` for state ${stateFilter}` : ''}`);
+      let url = '/api/get-districts';
+      
+      if (stateFilter && stateFilter !== 'all') {
+        url += `?state=${encodeURIComponent(stateFilter)}`;
+      }
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success && data.districts && data.districts.length > 0) {
+        console.log(`API returned ${data.districts.length} districts. First few: ${data.districts.slice(0, 5).join(', ')}...`);
+        if (!stateFilter || stateFilter === 'all') {
+          setDistricts(data.districts);
+          setAvailableDistricts(data.districts);
+        } else {
+          setAvailableDistricts(data.districts);
+        }
+        return data.districts;
+      } else {
+        console.error("API returned no districts or encountered an error:", data);
+        const defaultDistricts = ["Ajmer", "Bongaigaon", "Charaideo", "Darrang", "Dhubri"];
+        
+        if (!stateFilter || stateFilter === 'all') {
+          setDistricts(defaultDistricts);
+          setAvailableDistricts(defaultDistricts);
+        } else {
+          setAvailableDistricts(defaultDistricts);
+        }
+        return defaultDistricts;
+      }
+    } catch (error) {
+      console.error("Error fetching districts from API:", error);
+      const defaultDistricts = ["Ajmer", "Bongaigaon", "Charaideo", "Darrang", "Dhubri"];
+      
+      if (!stateFilter || stateFilter === 'all') {
+        setDistricts(defaultDistricts);
+        setAvailableDistricts(defaultDistricts);
+      } else {
+        setAvailableDistricts(defaultDistricts);
+      }
+      return defaultDistricts;
+    }
+  }
+
+  // Filter items based on selected filters - now uses the full dataset
+  useEffect(() => {
+    console.log("Applying filters to full dataset:", {
+      state: selectedState,
+      district: selectedDistrict,
+      department: selectedDepartment
+    });
+    
+    // Start with the full dataset
+    let filtered = [...fullInventoryData];
+    
+    // Apply filters
+    if (selectedState && selectedState !== "all") {
+      console.log(`Filtering by state: ${selectedState}`);
+      filtered = filtered.filter((item) => item.state === selectedState);
+    }
+    
+    if (selectedDistrict && selectedDistrict !== "all") {
+      console.log(`Filtering by district: ${selectedDistrict}`);
+      filtered = filtered.filter((item) => item.district === selectedDistrict);
+    }
+    
+    if (selectedDepartment && selectedDepartment !== "all") {
+      console.log(`Filtering by department: ${selectedDepartment}`);
+      filtered = filtered.filter((item) => item.department_type === selectedDepartment);
+    }
+    
+    console.log(`After filtering: ${filtered.length} items remain`);
+    setFilteredItems(filtered);
+    
+  }, [fullInventoryData, selectedState, selectedDistrict, selectedDepartment]);
+
+  // Reset filters and refresh data
+  const resetFilters = () => {
+    console.log("Resetting all filters");
+    setSelectedState("all");
+    setSelectedDistrict("all");
+    setSelectedDepartment("all");
+    // No need to call fetchInventoryItems here as the useEffect will handle it
+    // Just update UI to show we're filtering again
+    toast({
+      title: "Filters Reset",
+      description: "Showing all inventory items",
+    });
+  }
 
   // Update available districts when state changes
   useEffect(() => {
-    if (selectedState) {
-      setAvailableDistricts(mockDistricts.filter((district) => district.stateId === selectedState))
+    if (selectedState && selectedState !== "all") {
+      console.log(`State changed to ${selectedState}, filtering districts...`);
+      
+      // Filter the full list of districts based on selected state
+      // For "all", we'll set all districts as available later
+      try {
+        // Get all districts for this state directly from backend
+        getUniqueDistricts(selectedState).then(filteredDistricts => {
+          if (filteredDistricts && filteredDistricts.length > 0) {
+            console.log(`Found ${filteredDistricts.length} districts for state ${selectedState}`);
+            setAvailableDistricts(filteredDistricts);
+          } else {
+            console.log(`No districts found for state ${selectedState}, using default districts`);
+            setAvailableDistricts(districts); // Use all districts as fallback
+          }
+        });
+      } catch (error) {
+        console.error("Error filtering districts:", error);
+        setAvailableDistricts(districts);
+      }
     } else {
-      setAvailableDistricts(mockDistricts)
+      // For "all" state, show all districts
+      console.log("State set to 'all', showing all districts");
+      setAvailableDistricts(districts);
     }
-    setSelectedDistrict("")
-    setSelectedDepartment("")
-  }, [selectedState])
+    
+    // Reset the selected district and department when state changes
+    setSelectedDistrict("all");
+    setSelectedDepartment("all");
+  }, [selectedState, districts]);
 
   // Update available departments when district changes
   useEffect(() => {
-    if (selectedDistrict) {
-      setAvailableDepartments(mockDepartments.filter((department) => department.districtId === selectedDistrict))
-    } else if (selectedState) {
-      const districtIds = mockDistricts
-        .filter((district) => district.stateId === selectedState)
-        .map((district) => district.id)
-      setAvailableDepartments(mockDepartments.filter((department) => districtIds.includes(department.districtId)))
+    console.log(`District changed to ${selectedDistrict}, filtering departments...`);
+    
+    if ((selectedState && selectedState !== "all") || (selectedDistrict && selectedDistrict !== "all")) {
+      try {
+        // Get departments based on filters
+        getUniqueDepartmentTypes(
+          selectedState !== "all" ? selectedState : undefined,
+          selectedDistrict !== "all" ? selectedDistrict : undefined
+        ).then(filteredDepartments => {
+          if (filteredDepartments && filteredDepartments.length > 0) {
+            console.log(`Found ${filteredDepartments.length} departments with filters`);
+            setAvailableDepartments(filteredDepartments);
+          } else {
+            console.log("No departments found with filters, using all departments");
+            setAvailableDepartments(departments); // Use all departments as fallback
+          }
+        });
+      } catch (error) {
+        console.error("Error filtering departments:", error);
+        setAvailableDepartments(departments);
+      }
     } else {
-      setAvailableDepartments(mockDepartments)
+      // For "all" filters, show all departments
+      console.log("No specific filters, showing all departments");
+      setAvailableDepartments(departments);
     }
-    setSelectedDepartment("")
-  }, [selectedDistrict, selectedState])
-
-  // Filter items based on selected filters
-  useEffect(() => {
-    let filtered = [...inventoryItems]
-
-    if (selectedState) {
-      filtered = filtered.filter((item) => item.stateId === selectedState)
-    }
-
-    if (selectedDistrict) {
-      filtered = filtered.filter((item) => item.districtId === selectedDistrict)
-    }
-
-    if (selectedDepartment) {
-      filtered = filtered.filter((item) => item.departmentId === selectedDepartment)
-    }
-
-    setFilteredItems(filtered)
-  }, [inventoryItems, selectedState, selectedDistrict, selectedDepartment])
+    
+    // Reset the selected department when district changes
+    setSelectedDepartment("all");
+  }, [selectedState, selectedDistrict, departments]);
 
   // Update form state when state changes in the form
   useEffect(() => {
-    if (newItem.stateId) {
-      setNewItem((prev) => ({ ...prev, districtId: "", departmentId: "" }))
+    if (newItem.state) {
+      const fetchDistrictsForState = async () => {
+        try {
+          const districts = await getUniqueDistricts(newItem.state);
+          
+          if (districts && districts.length > 0) {
+            setAvailableDistricts(districts);
+          } else {
+            console.error("No districts found for state");
+            setAvailableDistricts([]);
+          }
+        } catch (error) {
+          console.error("Error fetching districts:", error);
+          setAvailableDistricts([]);
+        }
+      };
+      
+      fetchDistrictsForState();
+      setNewItem((prev) => ({ ...prev, district: "", department_type: "", department_name: "" }));
     }
-  }, [newItem.stateId])
+  }, [newItem.state]);
 
   // Update form state when district changes in the form
   useEffect(() => {
-    if (newItem.districtId) {
-      setNewItem((prev) => ({ ...prev, departmentId: "" }))
+    if (newItem.district) {
+      const fetchDepartmentsForDistrict = async () => {
+        try {
+          const departmentTypes = await getUniqueDepartmentTypes(newItem.state, newItem.district);
+          
+          if (departmentTypes && departmentTypes.length > 0) {
+            setAvailableDepartments(departmentTypes);
+          } else {
+            console.error("No department types found for district");
+            setAvailableDepartments([]);
+          }
+        } catch (error) {
+          console.error("Error fetching departments:", error);
+          setAvailableDepartments([]);
+        }
+      };
+      
+      fetchDepartmentsForDistrict();
+      setNewItem((prev) => ({ ...prev, department_type: "", department_name: "" }));
     }
-  }, [newItem.districtId])
+  }, [newItem.district, newItem.state]);
 
   // Handle adding a new item
-  const handleAddItem = () => {
-    setIsLoading(true)
+  const handleAddItem = async () => {
+    try {
+      setIsLoading(true);
+      
+      console.log("Adding new inventory item:", newItem);
+      
+      // Validate required fields
+      const errors = [];
+      if (!newItem.state) errors.push("State is required");
+      if (!newItem.district) errors.push("District is required");
+      if (!newItem.department_type) errors.push("Department type is required");
+      if (!newItem.department_name) errors.push("Department name is required");
+      if (!newItem.item_code) errors.push("Item code is required");
+      if (!newItem.item_name) errors.push("Item name is required");
+      
+      if (errors.length > 0) {
+        console.error("Validation errors:", errors);
+        toast({
+          title: "Error",
+          description: errors.join(", "),
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const newItemData = await createInventoryItem(newItem);
+      console.log("Create item response:", newItemData);
 
-    // Validate form
-    if (!newItem.stateId || !newItem.districtId || !newItem.departmentId || !newItem.itemCode || !newItem.itemName) {
+      if (newItemData) {
+        setAddModalOpen(false);
+        setNewItem({
+          state: "",
+          district: "",
+          department_type: "",
+          department_name: "",
+          item_code: 0,
+          item_name: "",
+          quantity: 0,
+        });
+        console.log("Item added successfully:", newItemData);
+        toast({
+          title: "Success",
+          description: "Item added successfully",
+        });
+        // Refresh the inventory items list
+        fetchAllInventoryData();
+      } else {
+        console.error("Failed to add item");
+        toast({
+          title: "Error",
+          description: "Failed to add item. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error adding item:", error);
       toast({
         title: "Error",
-        description: "Please fill all required fields",
+        description: "An error occurred while adding the item",
         variant: "destructive",
-      })
-      setIsLoading(false)
-      return
+      });
+    } finally {
+      setIsLoading(false);
     }
-
-    // Get names for the IDs
-    const state = mockStates.find((s) => s.id === newItem.stateId)
-    const district = mockDistricts.find((d) => d.id === newItem.districtId)
-    const department = mockDepartments.find((d) => d.id === newItem.departmentId)
-
-    if (!state || !district || !department) {
-      toast({
-        title: "Error",
-        description: "Invalid selection",
-        variant: "destructive",
-      })
-      setIsLoading(false)
-      return
-    }
-
-    // Create new item
-    const newInventoryItem: InventoryItem = {
-      id: `i${inventoryItems.length + 1}`,
-      itemCode: newItem.itemCode,
-      itemName: newItem.itemName,
-      quantity: newItem.quantity,
-      source: newItem.source,
-      departmentId: newItem.departmentId,
-      departmentName: department.name,
-      districtId: newItem.districtId,
-      districtName: district.name,
-      stateId: newItem.stateId,
-      stateName: state.name,
-    }
-
-    // Simulate API call
-    setTimeout(() => {
-      setInventoryItems((prev) => [...prev, newInventoryItem])
-      setAddModalOpen(false)
-      setNewItem({
-        itemCode: "",
-        itemName: "",
-        quantity: 0,
-        source: "",
-        stateId: "",
-        districtId: "",
-        departmentId: "",
-      })
-      setIsLoading(false)
-      toast({
-        title: "Success",
-        description: "Item added successfully",
-      })
-    }, 1000)
   }
 
   // Handle deleting an item
-  const handleDeleteItem = () => {
-    if (!itemToDelete) return
+  const handleDeleteItem = async () => {
+    if (!itemToDelete || !itemToDelete.id) {
+      console.error("No item selected for deletion or item has no ID");
+      return;
+    }
 
-    setIsLoading(true)
+    try {
+      setIsLoading(true);
+      console.log("Deleting inventory item:", itemToDelete.id);
+      
+      const success = await deleteInventoryItem(itemToDelete.id);
+      console.log("Delete item response:", success);
 
-    // Simulate API call
-    setTimeout(() => {
-      setInventoryItems((prev) => prev.filter((item) => item.id !== itemToDelete.id))
-      setDeleteDialogOpen(false)
-      setItemToDelete(null)
-      setIsLoading(false)
+      if (success) {
+        setInventoryItems((prev) => prev.filter((item) => item.id !== itemToDelete.id));
+        setFilteredItems((prev) => prev.filter((item) => item.id !== itemToDelete.id));
+        setDeleteDialogOpen(false);
+        setItemToDelete(null);
+        console.log("Item deleted successfully");
+        toast({
+          title: "Success",
+          description: "Item deleted successfully",
+        });
+      } else {
+        console.error("Failed to delete item");
+        toast({
+          title: "Error",
+          description: "Failed to delete item. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting item:", error);
       toast({
-        title: "Success",
-        description: "Item deleted successfully",
-      })
-    }, 1000)
+        title: "Error",
+        description: "An error occurred while deleting the item",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
-  // Get department details
-  const getDepartmentDetails = (departmentId: string) => {
-    return mockDepartments.find((dep) => dep.id === departmentId)
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage)
   }
 
-  // Reset filters
-  const resetFilters = () => {
-    setSelectedState("")
-    setSelectedDistrict("")
-    setSelectedDepartment("")
+  // Get current items for the current page
+  const getCurrentItems = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    return filteredItems.slice(startIndex, endIndex)
   }
+
+  // Initial load debugging
+  useEffect(() => {
+    try {
+      // Log environment variables (safely)
+      console.log("Frontend environment variables available:", {
+        NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? "defined" : "undefined",
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "defined" : "undefined"
+      });
+      
+      // Verify that backend modules are imported correctly
+      console.log("Backend functions imported:", {
+        getInventoryItems: typeof getInventoryItems,
+        getUniqueStates: typeof getUniqueStates,
+        getUniqueDistricts: typeof getUniqueDistricts,
+        getUniqueDepartmentTypes: typeof getUniqueDepartmentTypes,
+        createInventoryItem: typeof createInventoryItem,
+        deleteInventoryItem: typeof deleteInventoryItem,
+      });
+    } catch (error) {
+      console.error("Error checking environment:", error);
+    }
+  }, []);
+
+  // Function to check Supabase connection
+  const checkSupabaseConnection = async () => {
+    try {
+      const response = await fetch('/api/check-connection');
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error checking connection:", error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  };
+
+  // Function to fetch ALL filter options
+  const fetchAllFilterOptions = async () => {
+    console.log("Starting fetchAllFilterOptions...");
+    setIsLoadingFilters(true);
+    
+    try {
+      // Try the API endpoint first
+      const success = await fetchAllFilterOptionsFromApi();
+      
+      if (success) {
+        console.log("Successfully loaded all filter options from API");
+        setIsLoadingFilters(false);
+        return;
+      }
+      
+      // If API fails, use the fetchFilterOptions as fallback
+      console.log("API approach failed, using fetchFilterOptions fallback");
+      await fetchFilterOptions();
+    } catch (error) {
+      console.error("Error in fetchAllFilterOptions:", error);
+      await fetchFilterOptions(); // Fallback to other method
+    } finally {
+      setIsLoadingFilters(false);
+    }
+  };
 
   return (
     <div className="flex h-screen">
@@ -505,7 +1018,7 @@ export default function InventoryManagement() {
             <Button
               variant="outline"
               size="sm"
-              className="mt-2 w-full bg-lime-200 dark:bg-zinc-700 hover:bg-lime-300 dark:hover:bg-zinc-600 text-lime-900 dark:text-white border-lime-400 dark:border-zinc-600"
+              className="mt-2 w-full bg-lime-200 dark:bg-zinc-700 hover:bg-lime-300 dark:hover:bg-zinc-600"
             >
               View Items
             </Button>
@@ -594,9 +1107,9 @@ export default function InventoryManagement() {
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value="all">All States</SelectItem>
-                      {mockStates.map((state) => (
-                        <SelectItem key={state.id} value={state.id}>
-                          {state.name}
+                      {states.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -619,8 +1132,8 @@ export default function InventoryManagement() {
                     <SelectGroup>
                       <SelectItem value="all">All Districts</SelectItem>
                       {availableDistricts.map((district) => (
-                        <SelectItem key={district.id} value={district.id}>
-                          {district.name}
+                        <SelectItem key={district} value={district}>
+                          {district}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -643,8 +1156,8 @@ export default function InventoryManagement() {
                     <SelectGroup>
                       <SelectItem value="all">All Departments</SelectItem>
                       {availableDepartments.map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
+                        <SelectItem key={department} value={department}>
+                          {department}
                         </SelectItem>
                       ))}
                     </SelectGroup>
@@ -671,59 +1184,36 @@ export default function InventoryManagement() {
                     <TableHead className="text-lime-900 dark:text-white">Item Code</TableHead>
                     <TableHead className="text-lime-900 dark:text-white">Item Name</TableHead>
                     <TableHead className="text-lime-900 dark:text-white">Quantity</TableHead>
-                    <TableHead className="text-lime-900 dark:text-white">Source</TableHead>
+                    <TableHead className="text-lime-900 dark:text-white">Created At</TableHead>
                     <TableHead className="text-lime-900 dark:text-white">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredItems.length > 0 ? (
-                    filteredItems.map((item) => {
-                      const department = getDepartmentDetails(item.departmentId)
-
-                      return (
-                        <TableRow
-                          key={item.id}
-                          className="group hover:bg-lime-50 dark:hover:bg-zinc-800 transition-colors"
-                        >
-                          <TableCell className="text-lime-900 dark:text-white">{item.stateName}</TableCell>
-                          <TableCell className="text-lime-900 dark:text-white">{item.districtName}</TableCell>
-                          <TableCell>
-                            {department ? (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-help flex items-center gap-1 underline decoration-dotted text-lime-900 dark:text-white">
-                                      {item.departmentName}
-                                      <Info className="h-4 w-4 text-lime-600 dark:text-lime-400" />
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="w-80 p-4 bg-white dark:bg-zinc-900 border-lime-200 dark:border-zinc-700">
-                                    <div className="space-y-2">
-                                      <h4 className="font-semibold text-lime-900 dark:text-white">{department.name}</h4>
-                                      <div className="grid grid-cols-2 gap-2 text-sm">
-                                        <div className="text-lime-700 dark:text-lime-400">Type:</div>
-                                        <div className="text-lime-900 dark:text-white">{department.type}</div>
-                                        <div className="text-lime-700 dark:text-lime-400">Address:</div>
-                                        <div className="text-lime-900 dark:text-white">{department.address}</div>
-                                        <div className="text-lime-700 dark:text-lime-400">Contact Person:</div>
-                                        <div className="text-lime-900 dark:text-white">{department.contactPerson}</div>
-                                        <div className="text-lime-700 dark:text-lime-400">Contact Number:</div>
-                                        <div className="text-lime-900 dark:text-white">{department.contactNumber}</div>
-                                        <div className="text-lime-700 dark:text-lime-400">Contact Email:</div>
-                                        <div className="text-lime-900 dark:text-white">{department.contactEmail}</div>
-                                      </div>
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            ) : (
-                              <span className="text-lime-900 dark:text-white">{item.departmentName}</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-lime-900 dark:text-white">{item.itemCode}</TableCell>
-                          <TableCell className="text-lime-900 dark:text-white">{item.itemName}</TableCell>
-                          <TableCell>
-                            {item.quantity < 10 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center">
+                        <div className="flex items-center justify-center">
+                          <span className="animate-spin mr-2">⏳</span>
+                          Loading...
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : getCurrentItems().length > 0 ? (
+                    getCurrentItems().map((item) => (
+                      <TableRow
+                        key={item.id}
+                        className="group hover:bg-lime-50 dark:hover:bg-zinc-800 transition-colors"
+                      >
+                        <TableCell className="text-lime-900 dark:text-white">{item.state}</TableCell>
+                        <TableCell className="text-lime-900 dark:text-white">{item.district}</TableCell>
+                        <TableCell>
+                          {item.department_name}
+                        </TableCell>
+                        <TableCell className="text-lime-900 dark:text-white">{item.item_code}</TableCell>
+                        <TableCell className="text-lime-900 dark:text-white">{item.item_name}</TableCell>
+                        <TableCell>
+                          {item.quantity !== null && (
+                            item.quantity < 10 ? (
                               <Badge variant="destructive" className="animate-pulse">
                                 {item.quantity}
                               </Badge>
@@ -738,26 +1228,28 @@ export default function InventoryManagement() {
                               >
                                 {item.quantity}
                               </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-lime-900 dark:text-white">{item.source}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setItemToDelete(item)
-                                setDeleteDialogOpen(true)
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span className="sr-only">Delete</span>
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
+                            )
+                          )}
+                        </TableCell>
+                        <TableCell className="text-lime-900 dark:text-white">
+                          {item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setItemToDelete(item)
+                              setDeleteDialogOpen(true)
+                            }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
                   ) : (
                     <TableRow>
                       <TableCell colSpan={8} className="h-24 text-center text-lime-700 dark:text-lime-400">
@@ -768,6 +1260,71 @@ export default function InventoryManagement() {
                 </TableBody>
               </Table>
             </div>
+            
+            {/* Pagination Controls */}
+            {filteredItems.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-lime-200 dark:border-zinc-800">
+                <div className="flex items-center text-sm text-lime-700 dark:text-lime-400">
+                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, filteredItems.length)} to {Math.min(currentPage * itemsPerPage, filteredItems.length)} of {filteredItems.length} items
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(1)}
+                    disabled={currentPage === 1}
+                    className="border-lime-200 dark:border-zinc-700 text-lime-700 dark:text-lime-400"
+                  >
+                    First
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="border-lime-200 dark:border-zinc-700 text-lime-700 dark:text-lime-400"
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-lime-700 dark:text-lime-400">
+                    Page {currentPage} of {pageCount || 1}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === pageCount || pageCount === 0}
+                    className="border-lime-200 dark:border-zinc-700 text-lime-700 dark:text-lime-400"
+                  >
+                    Next
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pageCount)}
+                    disabled={currentPage === pageCount || pageCount === 0}
+                    className="border-lime-200 dark:border-zinc-700 text-lime-700 dark:text-lime-400"
+                  >
+                    Last
+                  </Button>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value))
+                      setCurrentPage(1) // Reset to first page when changing items per page
+                    }}
+                    id="items-per-page"
+                    aria-label="Items per page"
+                    className="h-8 px-2 text-sm rounded border border-lime-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-lime-700 dark:text-lime-400"
+                  >
+                    <option value={10}>10 per page</option>
+                    <option value={25}>25 per page</option>
+                    <option value={50}>50 per page</option>
+                    <option value={100}>100 per page</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </motion.div>
         </main>
       </div>
@@ -806,16 +1363,18 @@ export default function InventoryManagement() {
                 <Label htmlFor="state" className="text-lime-900 dark:text-white">
                   State *
                 </Label>
-                <Select value={newItem.stateId} onValueChange={(value) => setNewItem({ ...newItem, stateId: value })}>
+                <Select value={newItem.state} onValueChange={(value) => setNewItem({ ...newItem, state: value })}>
                   <SelectTrigger id="state" className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700">
                     <SelectValue placeholder="Select State" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockStates.map((state) => (
-                      <SelectItem key={state.id} value={state.id}>
-                        {state.name}
-                      </SelectItem>
-                    ))}
+                    <SelectGroup>
+                      {states.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
@@ -825,53 +1384,66 @@ export default function InventoryManagement() {
                   District *
                 </Label>
                 <Select
-                  value={newItem.districtId}
-                  onValueChange={(value) => setNewItem({ ...newItem, districtId: value })}
-                  disabled={!newItem.stateId}
+                  value={newItem.district}
+                  onValueChange={(value) => setNewItem({ ...newItem, district: value })}
+                  disabled={!newItem.state}
                 >
                   <SelectTrigger
                     id="district"
                     className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
                   >
-                    <SelectValue placeholder={newItem.stateId ? "Select District" : "Select State first"} />
+                    <SelectValue placeholder={newItem.state ? "Select District" : "Select State first"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockDistricts
-                      .filter((district) => district.stateId === newItem.stateId)
-                      .map((district) => (
-                        <SelectItem key={district.id} value={district.id}>
-                          {district.name}
+                    <SelectGroup>
+                      {newItem.state ? availableDistricts.map((district) => (
+                        <SelectItem key={district} value={district}>
+                          {district}
                         </SelectItem>
-                      ))}
+                      )) : null}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="department" className="text-lime-900 dark:text-white">
-                  Department *
+                  Department Type *
                 </Label>
                 <Select
-                  value={newItem.departmentId}
-                  onValueChange={(value) => setNewItem({ ...newItem, departmentId: value })}
-                  disabled={!newItem.districtId}
+                  value={newItem.department_type}
+                  onValueChange={(value) => setNewItem({ ...newItem, department_type: value })}
+                  disabled={!newItem.district}
                 >
                   <SelectTrigger
                     id="department"
                     className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
                   >
-                    <SelectValue placeholder={newItem.districtId ? "Select Department" : "Select District first"} />
+                    <SelectValue placeholder={newItem.district ? "Select Department Type" : "Select District first"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockDepartments
-                      .filter((department) => department.districtId === newItem.districtId)
-                      .map((department) => (
-                        <SelectItem key={department.id} value={department.id}>
-                          {department.name}
+                    <SelectGroup>
+                      {newItem.district ? availableDepartments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
                         </SelectItem>
-                      ))}
+                      )) : null}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="departmentName" className="text-lime-900 dark:text-white">
+                  Department Name *
+                </Label>
+                <Input
+                  id="departmentName"
+                  value={newItem.department_name}
+                  onChange={(e) => setNewItem({ ...newItem, department_name: e.target.value })}
+                  placeholder="e.g. Health Department"
+                  className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
+                />
               </div>
 
               <div className="space-y-2">
@@ -880,9 +1452,9 @@ export default function InventoryManagement() {
                 </Label>
                 <Input
                   id="itemCode"
-                  value={newItem.itemCode}
-                  onChange={(e) => setNewItem({ ...newItem, itemCode: e.target.value })}
-                  placeholder="e.g. MED001"
+                  value={newItem.item_code}
+                  onChange={(e) => setNewItem({ ...newItem, item_code: Number.parseInt(e.target.value) || 0 })}
+                  placeholder="e.g. 1001"
                   className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
                 />
               </div>
@@ -893,8 +1465,8 @@ export default function InventoryManagement() {
                 </Label>
                 <Input
                   id="itemName"
-                  value={newItem.itemName}
-                  onChange={(e) => setNewItem({ ...newItem, itemName: e.target.value })}
+                  value={newItem.item_name}
+                  onChange={(e) => setNewItem({ ...newItem, item_name: e.target.value })}
                   placeholder="e.g. Paracetamol"
                   className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
                 />
@@ -910,19 +1482,6 @@ export default function InventoryManagement() {
                   min="0"
                   value={newItem.quantity}
                   onChange={(e) => setNewItem({ ...newItem, quantity: Number.parseInt(e.target.value) || 0 })}
-                  className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="source" className="text-lime-900 dark:text-white">
-                  Source
-                </Label>
-                <Input
-                  id="source"
-                  value={newItem.source}
-                  onChange={(e) => setNewItem({ ...newItem, source: e.target.value })}
-                  placeholder="e.g. Central Supply"
                   className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
                 />
               </div>
@@ -958,13 +1517,13 @@ export default function InventoryManagement() {
             <AlertDialogDescription className="text-lime-700 dark:text-lime-400">
               {itemToDelete && (
                 <>
-                  Are you sure you want to delete this item from {itemToDelete.departmentName}?
+                  Are you sure you want to delete this item from {itemToDelete.department_name}?
                   <div className="mt-2 p-2 border rounded bg-lime-50 dark:bg-zinc-800 border-lime-200 dark:border-zinc-700">
                     <p className="text-lime-900 dark:text-white">
-                      <strong>Item:</strong> {itemToDelete.itemName}
+                      <strong>Item:</strong> {itemToDelete.item_name}
                     </p>
                     <p className="text-lime-900 dark:text-white">
-                      <strong>Code:</strong> {itemToDelete.itemCode}
+                      <strong>Code:</strong> {itemToDelete.item_code}
                     </p>
                     <p className="text-lime-900 dark:text-white">
                       <strong>Quantity:</strong> {itemToDelete.quantity}
@@ -995,6 +1554,15 @@ export default function InventoryManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Display loading progress indicator when loading */}
+      {isLoading && loadingProgress.total > 0 && (
+        <DataLoadingProgress 
+          current={loadingProgress.current} 
+          total={loadingProgress.total} 
+          percentage={loadingProgress.percentage} 
+        />
+      )}
 
       {/* Toast notifications */}
       <Toaster />
