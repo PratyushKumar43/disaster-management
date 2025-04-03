@@ -157,6 +157,11 @@ export default function InventoryManagement() {
   const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null)
   const [editItem, setEditItem] = useState<Partial<InventoryItem>>({})
 
+  // Add new state for low stock items
+  const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const LOW_STOCK_THRESHOLD = 10;
+
   // Initial data loading
   useEffect(() => {
     console.log("Initial component mount - loading data");
@@ -349,6 +354,13 @@ export default function InventoryManagement() {
         setInventoryItems(processedItems);
         setFilteredItems(processedItems);
         setTotalItems(processedItems.length);
+        
+        // Identify low stock items
+        const itemsWithLowStock = processedItems.filter(
+          item => item.quantity !== null && item.quantity < LOW_STOCK_THRESHOLD
+        );
+        setLowStockItems(itemsWithLowStock);
+        console.log(`Found ${itemsWithLowStock.length} items with low stock (below ${LOW_STOCK_THRESHOLD})`);
         
         // Extract unique values for filters from the full dataset
         const uniqueStates = [...new Set(processedItems.map(item => item.state))]
@@ -785,10 +797,10 @@ export default function InventoryManagement() {
       
       if (errors.length > 0) {
         console.error("Validation errors:", errors);
-        toast({
-          title: "Error",
+      toast({
+        title: "Error",
           description: errors.join(", "),
-          variant: "destructive",
+        variant: "destructive",
         });
         return;
       }
@@ -828,10 +840,10 @@ export default function InventoryManagement() {
         fetchAllInventoryData();
       } else {
         console.error("Failed to add item", result.message || "Unknown error");
-        toast({
-          title: "Error",
+      toast({
+        title: "Error",
           description: result.message || "Failed to add item. Please try again.",
-          variant: "destructive",
+        variant: "destructive",
         });
       }
     } catch (error) {
@@ -871,7 +883,7 @@ export default function InventoryManagement() {
         setDeleteDialogOpen(false);
         setItemToDelete(null);
         console.log("Item deleted successfully");
-        toast({
+      toast({
           title: "✅ Success",
           description: `Item "${itemToDelete.item_name}" deleted successfully`,
           variant: "default",
@@ -1035,7 +1047,7 @@ export default function InventoryManagement() {
         setItemToEdit(null);
         console.log("Item updated successfully:", result.item);
         
-        toast({
+      toast({
           title: "✅ Success",
           description: `Item "${result.item.item_name}" updated successfully`,
           variant: "default",
@@ -1060,6 +1072,90 @@ export default function InventoryManagement() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Add this useEffect to update filtered items when showLowStockOnly changes
+  useEffect(() => {
+    if (showLowStockOnly) {
+      setFilteredItems(lowStockItems);
+      // Reset to page 1 when filtering to low stock only
+      setCurrentPage(1);
+    } else {
+      // Apply normal filters to the full dataset
+      let filtered = [...fullInventoryData];
+      
+      // Apply filters
+      if (selectedState && selectedState !== "all") {
+        filtered = filtered.filter((item) => item.state === selectedState);
+      }
+      
+      if (selectedDistrict && selectedDistrict !== "all") {
+        filtered = filtered.filter((item) => item.district === selectedDistrict);
+      }
+      
+      if (selectedDepartment && selectedDepartment !== "all") {
+        filtered = filtered.filter((item) => item.department_type === selectedDepartment);
+      }
+      
+      setFilteredItems(filtered);
+    }
+  }, [showLowStockOnly, fullInventoryData, lowStockItems, selectedState, selectedDistrict, selectedDepartment]);
+
+  // Modify the existing filter effect to not overwrite when showing low stock only
+  useEffect(() => {
+    if (showLowStockOnly) {
+      // Skip normal filtering when showing low stock only
+      return;
+    }
+    
+    console.log("Applying filters to full dataset:", {
+      state: selectedState,
+      district: selectedDistrict,
+      department: selectedDepartment
+    });
+    
+    // Start with the full dataset
+    let filtered = [...fullInventoryData];
+    
+    // Apply filters
+    if (selectedState && selectedState !== "all") {
+      console.log(`Filtering by state: ${selectedState}`);
+      filtered = filtered.filter((item) => item.state === selectedState);
+    }
+    
+    if (selectedDistrict && selectedDistrict !== "all") {
+      console.log(`Filtering by district: ${selectedDistrict}`);
+      filtered = filtered.filter((item) => item.district === selectedDistrict);
+    }
+    
+    if (selectedDepartment && selectedDepartment !== "all") {
+      console.log(`Filtering by department: ${selectedDepartment}`);
+      filtered = filtered.filter((item) => item.department_type === selectedDepartment);
+    }
+    
+    console.log(`After filtering: ${filtered.length} items remain`);
+    setFilteredItems(filtered);
+    
+  }, [fullInventoryData, selectedState, selectedDistrict, selectedDepartment, showLowStockOnly]);
+
+  // Toggle function for showing low stock items
+  const toggleLowStockView = () => {
+    // If turning off low stock view, also clear filters
+    if (showLowStockOnly) {
+      setSelectedState("all");
+      setSelectedDistrict("all");
+      setSelectedDepartment("all");
+    }
+    
+    setShowLowStockOnly(!showLowStockOnly);
+    
+    toast({
+      title: showLowStockOnly ? "Showing All Items" : "Showing Low Stock Items",
+      description: showLowStockOnly 
+        ? "Returned to viewing all inventory items" 
+        : `Filtered to ${lowStockItems.length} items with quantity below ${LOW_STOCK_THRESHOLD}`,
+      duration: 3000,
+    });
   };
 
   return (
@@ -1130,14 +1226,15 @@ export default function InventoryManagement() {
               <span className="font-medium text-lime-900 dark:text-white">Low Stock Alert</span>
             </div>
             <p className="text-sm text-lime-700 dark:text-zinc-300">
-              You have 2 items with critically low stock levels.
+              You have {lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''} with critically low stock levels.
             </p>
             <Button
               variant="outline"
               size="sm"
+              onClick={toggleLowStockView}
               className="mt-2 w-full bg-lime-200 dark:bg-zinc-700 hover:bg-lime-300 dark:hover:bg-zinc-600"
             >
-              View Items
+              {showLowStockOnly ? "Show All Items" : "View Low Stock Items"}
             </Button>
           </div>
         </div>
@@ -1292,6 +1389,24 @@ export default function InventoryManagement() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div className="relative w-full overflow-auto">
+              {showLowStockOnly && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 border-b border-yellow-200 dark:border-yellow-900/30 flex items-center justify-between">
+                  <div className="flex items-center">
+                    <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2" />
+                    <span className="text-yellow-700 dark:text-yellow-400 font-medium">
+                      Showing {filteredItems.length} items with low stock (quantity below {LOW_STOCK_THRESHOLD})
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleLowStockView}
+                    className="border-yellow-200 dark:border-yellow-700 bg-white dark:bg-zinc-800 text-yellow-700 dark:text-yellow-400"
+                  >
+                    Show All Items
+                  </Button>
+                </div>
+              )}
               <Table>
                 <TableHeader>
                   <TableRow className="bg-lime-50 dark:bg-zinc-800 hover:bg-lime-50 dark:hover:bg-zinc-800">
