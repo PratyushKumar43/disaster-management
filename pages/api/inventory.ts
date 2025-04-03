@@ -13,9 +13,9 @@ export default async function handler(
   try {
     // Get pagination parameters from query
     const offset = parseInt(req.query.offset as string) || 0;
-    // Limit chunk size to 10000 max to prevent timeouts
-    const requestedLimit = parseInt(req.query.limit as string) || 10000;
-    const limit = Math.min(requestedLimit, 10000);
+    // Limit chunk size to 20000 max to improve loading performance
+    const requestedLimit = parseInt(req.query.limit as string) || 20000;
+    const limit = Math.min(requestedLimit, 20000);
 
     console.log(`API: Fetching inventory items with offset ${offset} and limit ${limit}`);
 

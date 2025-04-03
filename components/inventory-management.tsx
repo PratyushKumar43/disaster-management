@@ -234,8 +234,8 @@ export default function InventoryManagement() {
         totalEstimated = 300000; // Fallback estimate
       }
       
-      // Fetch data in chunks of 10,000 records (reduced from 100,000)
-      const pageSize = 10000;
+      // Fetch data in chunks of 20000 records for faster loading
+      const pageSize = 20000;
       const totalPages = Math.ceil(totalEstimated / pageSize);
       console.log(`Will fetch data in ${totalPages} chunks of ${pageSize} items each`);
       
@@ -818,8 +818,11 @@ export default function InventoryManagement() {
         });
         console.log("Item added successfully:", result.item);
         toast({
-          title: "Success",
-          description: "Item added successfully",
+          title: "✅ Success",
+          description: `Item "${result.item.item_name}" added successfully`,
+          variant: "default",
+          className: "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-700",
+          duration: 5000,
         });
         // Refresh the inventory items list
         fetchAllInventoryData();
@@ -869,8 +872,11 @@ export default function InventoryManagement() {
         setItemToDelete(null);
         console.log("Item deleted successfully");
         toast({
-          title: "Success",
-          description: "Item deleted successfully",
+          title: "✅ Success",
+          description: `Item "${itemToDelete.item_name}" deleted successfully`,
+          variant: "default",
+          className: "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-700",
+          duration: 5000,
         });
       } else {
         console.error("Failed to delete item", result.message || "Unknown error");
@@ -1030,8 +1036,11 @@ export default function InventoryManagement() {
         console.log("Item updated successfully:", result.item);
         
         toast({
-          title: "Success",
-          description: "Item updated successfully",
+          title: "✅ Success",
+          description: `Item "${result.item.item_name}" updated successfully`,
+          variant: "default",
+          className: "bg-green-100 border-green-400 dark:bg-green-900/50 dark:border-green-700",
+          duration: 5000,
         });
       } else {
         console.error("Failed to update item", result.message || "Unknown error");
@@ -1353,18 +1362,18 @@ export default function InventoryManagement() {
                                 <Edit className="h-4 w-4" />
                                 <span className="sr-only">Edit</span>
                               </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  setItemToDelete(item)
-                                  setDeleteDialogOpen(true)
-                                }}
-                                className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                <span className="sr-only">Delete</span>
-                              </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setItemToDelete(item)
+                                setDeleteDialogOpen(true)
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
                             </div>
                           </TableCell>
                         </TableRow>
