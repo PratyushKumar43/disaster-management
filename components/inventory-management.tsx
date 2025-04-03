@@ -13,6 +13,7 @@ import {
   Bell,
   AlertTriangle,
   Package2,
+  Edit,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -151,6 +152,11 @@ export default function InventoryManagement() {
     percentage: 0 
   });
 
+  // Add new state variables for editing
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null)
+  const [editItem, setEditItem] = useState<Partial<InventoryItem>>({})
+
   // Initial data loading
   useEffect(() => {
     console.log("Initial component mount - loading data");
@@ -176,7 +182,7 @@ export default function InventoryManagement() {
           // Fetch filter options and data separately
           fetchAllFilterOptions();
           fetchAllInventoryData();
-        } else {
+    } else {
           toast({
             title: "Connection Error",
             description: `Failed to connect to database: ${status.error}`,
@@ -219,7 +225,7 @@ export default function InventoryManagement() {
           totalEstimated = countData.count || 0;
           console.log(`Total estimated items: ${totalEstimated}`);
           setLoadingProgress({ current: 0, total: totalEstimated, percentage: 0 });
-        } else {
+    } else {
           console.warn("Could not get exact count, using estimate");
           totalEstimated = 300000; // Fallback estimate
         }
@@ -787,10 +793,19 @@ export default function InventoryManagement() {
         return;
       }
       
-      const newItemData = await createInventoryItem(newItem);
-      console.log("Create item response:", newItemData);
+      // Use the API endpoint instead of calling backend function directly
+      const response = await fetch('/api/manage-inventory', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newItem)
+      });
+      
+      const result = await response.json();
+      console.log("Create item API response:", result);
 
-      if (newItemData) {
+      if (result.success && result.item) {
         setAddModalOpen(false);
         setNewItem({
           state: "",
@@ -801,7 +816,7 @@ export default function InventoryManagement() {
           item_name: "",
           quantity: 0,
         });
-        console.log("Item added successfully:", newItemData);
+        console.log("Item added successfully:", result.item);
         toast({
           title: "Success",
           description: "Item added successfully",
@@ -809,10 +824,10 @@ export default function InventoryManagement() {
         // Refresh the inventory items list
         fetchAllInventoryData();
       } else {
-        console.error("Failed to add item");
+        console.error("Failed to add item", result.message || "Unknown error");
         toast({
           title: "Error",
-          description: "Failed to add item. Please try again.",
+          description: result.message || "Failed to add item. Please try again.",
           variant: "destructive",
         });
       }
@@ -839,10 +854,15 @@ export default function InventoryManagement() {
       setIsLoading(true);
       console.log("Deleting inventory item:", itemToDelete.id);
       
-      const success = await deleteInventoryItem(itemToDelete.id);
-      console.log("Delete item response:", success);
+      // Use the API endpoint instead of calling backend function directly
+      const response = await fetch(`/api/manage-inventory?id=${itemToDelete.id}`, {
+        method: 'DELETE'
+      });
+      
+      const result = await response.json();
+      console.log("Delete item API response:", result);
 
-      if (success) {
+      if (result.success) {
         setInventoryItems((prev) => prev.filter((item) => item.id !== itemToDelete.id));
         setFilteredItems((prev) => prev.filter((item) => item.id !== itemToDelete.id));
         setDeleteDialogOpen(false);
@@ -853,10 +873,10 @@ export default function InventoryManagement() {
           description: "Item deleted successfully",
         });
       } else {
-        console.error("Failed to delete item");
+        console.error("Failed to delete item", result.message || "Unknown error");
         toast({
           title: "Error",
-          description: "Failed to delete item. Please try again.",
+          description: result.message || "Failed to delete item. Please try again.",
           variant: "destructive",
         });
       }
@@ -942,6 +962,94 @@ export default function InventoryManagement() {
       await fetchFilterOptions(); // Fallback to other method
     } finally {
       setIsLoadingFilters(false);
+    }
+  };
+
+  // Handle editing an item - open dialog and set form data
+  const handleEditClick = (item: InventoryItem) => {
+    setItemToEdit(item);
+    setEditItem({
+      state: item.state,
+      district: item.district,
+      department_type: item.department_type,
+      department_name: item.department_name,
+      item_code: item.item_code,
+      item_name: item.item_name,
+      quantity: item.quantity
+    });
+    setEditModalOpen(true);
+  };
+
+  // Handle saving edited item
+  const handleSaveEdit = async () => {
+    try {
+      if (!itemToEdit || !itemToEdit.id) {
+        console.error("No item selected for editing or item has no ID");
+        return;
+      }
+
+      setIsLoading(true);
+      console.log("Updating inventory item:", itemToEdit.id, editItem);
+      
+      // Use the API endpoint to update the item
+      const response = await fetch(`/api/manage-inventory?id=${itemToEdit.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(editItem)
+      });
+      
+      const result = await response.json();
+      console.log("Update item API response:", result);
+
+      if (result.success && result.item) {
+        // Update the item in the local state
+        setInventoryItems(prevItems => 
+          prevItems.map(item => 
+            item.id === itemToEdit.id ? result.item : item
+          )
+        );
+        
+        // Also update the filtered items
+        setFilteredItems(prevItems => 
+          prevItems.map(item => 
+            item.id === itemToEdit.id ? result.item : item
+          )
+        );
+        
+        // Also update the full dataset
+        setFullInventoryData(prevItems => 
+          prevItems.map(item => 
+            item.id === itemToEdit.id ? result.item : item
+          )
+        );
+        
+        setEditModalOpen(false);
+        setItemToEdit(null);
+        console.log("Item updated successfully:", result.item);
+        
+        toast({
+          title: "Success",
+          description: "Item updated successfully",
+        });
+      } else {
+        console.error("Failed to update item", result.message || "Unknown error");
+        toast({
+          title: "Error",
+          description: result.message || "Failed to update item. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating item:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while updating the item",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -1200,18 +1308,18 @@ export default function InventoryManagement() {
                     </TableRow>
                   ) : getCurrentItems().length > 0 ? (
                     getCurrentItems().map((item) => (
-                      <TableRow
-                        key={item.id}
-                        className="group hover:bg-lime-50 dark:hover:bg-zinc-800 transition-colors"
-                      >
+                        <TableRow
+                          key={item.id}
+                          className="group hover:bg-lime-50 dark:hover:bg-zinc-800 transition-colors"
+                        >
                         <TableCell className="text-lime-900 dark:text-white">{item.state}</TableCell>
                         <TableCell className="text-lime-900 dark:text-white">{item.district}</TableCell>
-                        <TableCell>
+                          <TableCell>
                           {item.department_name}
-                        </TableCell>
+                          </TableCell>
                         <TableCell className="text-lime-900 dark:text-white">{item.item_code}</TableCell>
                         <TableCell className="text-lime-900 dark:text-white">{item.item_name}</TableCell>
-                        <TableCell>
+                          <TableCell>
                           {item.quantity !== null && (
                             item.quantity < 10 ? (
                               <Badge variant="destructive" className="animate-pulse">
@@ -1229,26 +1337,37 @@ export default function InventoryManagement() {
                                 {item.quantity}
                               </Badge>
                             )
-                          )}
-                        </TableCell>
+                            )}
+                          </TableCell>
                         <TableCell className="text-lime-900 dark:text-white">
                           {item.created_at ? new Date(item.created_at).toLocaleDateString() : '-'}
                         </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setItemToDelete(item)
-                              setDeleteDialogOpen(true)
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            <span className="sr-only">Delete</span>
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                          <TableCell>
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditClick(item)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              >
+                                <Edit className="h-4 w-4" />
+                                <span className="sr-only">Edit</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setItemToDelete(item)
+                                  setDeleteDialogOpen(true)
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                <span className="sr-only">Delete</span>
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                     ))
                   ) : (
                     <TableRow>
@@ -1372,8 +1491,8 @@ export default function InventoryManagement() {
                       {states.map((state) => (
                         <SelectItem key={state} value={state}>
                           {state}
-                        </SelectItem>
-                      ))}
+                      </SelectItem>
+                    ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -1554,6 +1673,170 @@ export default function InventoryManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add Edit Item Modal */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="sm:max-w-[500px] bg-white dark:bg-zinc-900 border-lime-200 dark:border-zinc-700">
+          <DialogHeader>
+            <DialogTitle className="text-lime-900 dark:text-white">Edit Inventory Item</DialogTitle>
+            <DialogDescription className="text-lime-700 dark:text-lime-400">
+              Update the details of this inventory item.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-state" className="text-lime-900 dark:text-white">
+                  State *
+                </Label>
+                <Select 
+                  value={editItem.state} 
+                  onValueChange={(value) => setEditItem({ ...editItem, state: value })}
+                >
+                  <SelectTrigger id="edit-state" className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700">
+                    <SelectValue placeholder="Select State" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {states.map((state) => (
+                        <SelectItem key={state} value={state}>
+                          {state}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-district" className="text-lime-900 dark:text-white">
+                  District *
+                </Label>
+                <Select
+                  value={editItem.district}
+                  onValueChange={(value) => setEditItem({ ...editItem, district: value })}
+                  disabled={!editItem.state}
+                >
+                  <SelectTrigger
+                    id="edit-district"
+                    className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
+                  >
+                    <SelectValue placeholder={editItem.state ? "Select District" : "Select State first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {editItem.state ? availableDistricts.map((district) => (
+                        <SelectItem key={district} value={district}>
+                          {district}
+                        </SelectItem>
+                      )) : null}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-department" className="text-lime-900 dark:text-white">
+                  Department Type *
+                </Label>
+                <Select
+                  value={editItem.department_type}
+                  onValueChange={(value) => setEditItem({ ...editItem, department_type: value })}
+                  disabled={!editItem.district}
+                >
+                  <SelectTrigger
+                    id="edit-department"
+                    className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
+                  >
+                    <SelectValue placeholder={editItem.district ? "Select Department Type" : "Select District first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {editItem.district ? availableDepartments.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      )) : null}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-departmentName" className="text-lime-900 dark:text-white">
+                  Department Name *
+                </Label>
+                <Input
+                  id="edit-departmentName"
+                  value={editItem.department_name || ''}
+                  onChange={(e) => setEditItem({ ...editItem, department_name: e.target.value })}
+                  placeholder="e.g. Health Department"
+                  className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-itemCode" className="text-lime-900 dark:text-white">
+                  Item Code *
+                </Label>
+                <Input
+                  id="edit-itemCode"
+                  value={editItem.item_code || ''}
+                  onChange={(e) => setEditItem({ ...editItem, item_code: Number.parseInt(e.target.value) || 0 })}
+                  placeholder="e.g. 1001"
+                  className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-itemName" className="text-lime-900 dark:text-white">
+                  Item Name *
+                </Label>
+                <Input
+                  id="edit-itemName"
+                  value={editItem.item_name || ''}
+                  onChange={(e) => setEditItem({ ...editItem, item_name: e.target.value })}
+                  placeholder="e.g. Paracetamol"
+                  className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-quantity" className="text-lime-900 dark:text-white">
+                  Quantity
+                </Label>
+                <Input
+                  id="edit-quantity"
+                  type="number"
+                  min="0"
+                  value={editItem.quantity || 0}
+                  onChange={(e) => setEditItem({ ...editItem, quantity: Number.parseInt(e.target.value) || 0 })}
+                  className="bg-white dark:bg-zinc-800 border-lime-200 dark:border-zinc-700"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditModalOpen(false)}
+              className="border-lime-200 dark:border-zinc-700 text-lime-700 dark:text-lime-400"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={isLoading} className="bg-lime-500 hover:bg-lime-600 text-white">
+              {isLoading ? (
+                <>
+                  <span className="animate-spin mr-2">⏳</span>
+                  Saving...
+                </>
+              ) : (
+                "Save Changes"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Display loading progress indicator when loading */}
       {isLoading && loadingProgress.total > 0 && (

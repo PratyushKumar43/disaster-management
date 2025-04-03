@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { validateInventoryItem } from './dataProcessing';
-import { getSupabaseClient } from './supabase';
+import { getSupabaseClient, getSupabaseAdminClient } from './supabase';
 
 // Log environment information at startup
 console.log('=== Inventory Module Initialization ===');
@@ -34,7 +34,10 @@ export interface FilterOptions {
 // Create a new inventory item
 export async function createInventoryItem(item: any): Promise<InventoryItem | null> {
   try {
-    const supabase = getSupabaseClient();
+    console.log('Creating new inventory item:', item);
+    
+    // Use admin client for write operations to bypass RLS
+    const supabase = getSupabaseAdminClient();
     
     // Validate the item
     const errors = []
@@ -50,27 +53,44 @@ export async function createInventoryItem(item: any): Promise<InventoryItem | nu
       return null;
     }
     
-    const { data, error } = await supabase
-      .from('inventory')
-      .insert({
-        state: item.state,
-        district: item.district,
-        department_type: item.department_type,
-        department_name: item.department_name,
-        item_code: item.item_code,
-        item_name: item.item_name,
-        quantity: item.quantity || null
-      })
-      .select()
+    // Add timeout to prevent hanging requests
+    const timeoutPromise = new Promise<{ data: null, error: any }>((_, reject) => {
+      setTimeout(() => {
+        reject({ 
+          data: null, 
+          error: { message: "Create request timed out after 15 seconds" } 
+        });
+      }, 15000);
+    });
+    
+    // Execute create with timeout
+    const result = await Promise.race([
+      supabase
+        .from('inventory')
+        .insert({
+          state: item.state,
+          district: item.district,
+          department_type: item.department_type,
+          department_name: item.department_name,
+          item_code: item.item_code,
+          item_name: item.item_name,
+          quantity: item.quantity || null
+        })
+        .select(),
+      timeoutPromise
+    ]) as any;
+    
+    const { data, error } = result;
     
     if (error) {
-      console.error('Error creating inventory item:', error)
+      console.error('Error creating inventory item:', error);
       return null;
     }
     
+    console.log('Successfully created item:', data[0]);
     return data[0];
   } catch (error) {
-    console.error('Unexpected error creating inventory item:', error)
+    console.error('Unexpected error creating inventory item:', error);
     return null;
   }
 }
@@ -79,7 +99,9 @@ export async function createInventoryItem(item: any): Promise<InventoryItem | nu
 export async function deleteInventoryItem(id: string): Promise<boolean> {
   try {
     console.log(`Deleting inventory item with ID: ${id}`);
-    const supabase = getSupabaseClient();
+    
+    // Use admin client for write operations to bypass RLS
+    const supabase = getSupabaseAdminClient();
     
     // Add timeout to prevent hanging requests
     const timeoutPromise = new Promise<{ error: any }>((_, reject) => {
@@ -108,6 +130,75 @@ export async function deleteInventoryItem(id: string): Promise<boolean> {
   } catch (error) {
     console.error('Unexpected error deleting inventory item:', error);
     return false;
+  }
+}
+
+// Update an existing inventory item
+export async function updateInventoryItem(id: string, updates: Partial<InventoryItem>): Promise<InventoryItem | null> {
+  try {
+    console.log(`Updating inventory item with ID: ${id}`, updates);
+    
+    // Use admin client for write operations to bypass RLS
+    const supabase = getSupabaseAdminClient();
+    
+    // Validate the update - must have at least one field to update
+    if (Object.keys(updates).length === 0) {
+      console.error('No update fields provided');
+      return null;
+    }
+    
+    // Build the update object with only allowed fields
+    const allowedFields = [
+      'state', 'district', 'department_type', 'department_name',
+      'item_code', 'item_name', 'quantity'
+    ];
+    
+    const updateData: Record<string, any> = {};
+    
+    // Only include allowed fields
+    for (const field of allowedFields) {
+      if (field in updates) {
+        updateData[field] = (updates as any)[field];
+      }
+    }
+    
+    // Add timeout to prevent hanging requests
+    const timeoutPromise = new Promise<{ data: null, error: any }>((_, reject) => {
+      setTimeout(() => {
+        reject({ 
+          data: null, 
+          error: { message: "Update request timed out after 15 seconds" } 
+        });
+      }, 15000);
+    });
+    
+    // Execute update with timeout
+    const result = await Promise.race([
+      supabase
+        .from('inventory')
+        .update(updateData)
+        .eq('id', id)
+        .select(),
+      timeoutPromise
+    ]) as any;
+    
+    const { data, error } = result;
+    
+    if (error) {
+      console.error('Error updating inventory item:', error);
+      return null;
+    }
+    
+    if (!data || data.length === 0) {
+      console.error('No inventory item found with ID:', id);
+      return null;
+    }
+    
+    console.log('Successfully updated item:', data[0]);
+    return data[0];
+  } catch (error) {
+    console.error('Unexpected error updating inventory item:', error);
+    return null;
   }
 }
 
