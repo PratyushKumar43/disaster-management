@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-import { ThemeToggle } from "@/components/theme-toggle"
+import { ThemeToggle } from "./ui/theme-toggle"
 import { motion } from "framer-motion"
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -64,7 +64,7 @@ import {
 import type { InventoryItem } from "@/backend/inventory"
 import { checkSupabaseConnection } from "@/backend/supabase"
 import { createClient } from "@supabase/supabase-js"
-import { DataLoadingProgress } from "@/components/DataLoadingProgress"
+import { DataLoadingProgress } from "./ui/DataLoadingProgress"
 
 // Types
 interface Department {
@@ -89,16 +89,25 @@ interface State {
   name: string;
 }
 
-export default function InventoryManagement() {
+interface InventoryManagementProps {
+  preloadedData?: InventoryItem[];
+  filterOptions?: {
+    states: string[];
+    districts: string[];
+    departmentTypes: string[];
+  };
+}
+
+export default function InventoryManagement({ preloadedData, filterOptions }: InventoryManagementProps) {
   const { toast } = useToast()
-  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([])
-  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>(preloadedData || [])
+  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>(preloadedData || [])
+  const [isLoading, setIsLoading] = useState(!preloadedData)
 
   // States for filter dropdowns
-  const [states, setStates] = useState<string[]>([])
-  const [districts, setDistricts] = useState<string[]>([])
-  const [departments, setDepartments] = useState<string[]>([])
+  const [states, setStates] = useState<string[]>(filterOptions?.states || [])
+  const [districts, setDistricts] = useState<string[]>(filterOptions?.districts || [])
+  const [departments, setDepartments] = useState<string[]>(filterOptions?.departmentTypes || [])
 
   // Filter states
   const [selectedState, setSelectedState] = useState<string>("all")
@@ -156,11 +165,6 @@ export default function InventoryManagement() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [itemToEdit, setItemToEdit] = useState<InventoryItem | null>(null)
   const [editItem, setEditItem] = useState<Partial<InventoryItem>>({})
-
-  // Add new state for low stock items
-  const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
-  const LOW_STOCK_THRESHOLD = 10;
 
   // Initial data loading
   useEffect(() => {
@@ -354,13 +358,6 @@ export default function InventoryManagement() {
         setInventoryItems(processedItems);
         setFilteredItems(processedItems);
         setTotalItems(processedItems.length);
-        
-        // Identify low stock items
-        const itemsWithLowStock = processedItems.filter(
-          item => item.quantity !== null && item.quantity < LOW_STOCK_THRESHOLD
-        );
-        setLowStockItems(itemsWithLowStock);
-        console.log(`Found ${itemsWithLowStock.length} items with low stock (below ${LOW_STOCK_THRESHOLD})`);
         
         // Extract unique values for filters from the full dataset
         const uniqueStates = [...new Set(processedItems.map(item => item.state))]
@@ -797,10 +794,10 @@ export default function InventoryManagement() {
       
       if (errors.length > 0) {
         console.error("Validation errors:", errors);
-      toast({
-        title: "Error",
+        toast({
+          title: "Error",
           description: errors.join(", "),
-        variant: "destructive",
+          variant: "destructive",
         });
         return;
       }
@@ -840,10 +837,10 @@ export default function InventoryManagement() {
         fetchAllInventoryData();
       } else {
         console.error("Failed to add item", result.message || "Unknown error");
-      toast({
-        title: "Error",
+        toast({
+          title: "Error",
           description: result.message || "Failed to add item. Please try again.",
-        variant: "destructive",
+          variant: "destructive",
         });
       }
     } catch (error) {
@@ -883,7 +880,7 @@ export default function InventoryManagement() {
         setDeleteDialogOpen(false);
         setItemToDelete(null);
         console.log("Item deleted successfully");
-      toast({
+        toast({
           title: "✅ Success",
           description: `Item "${itemToDelete.item_name}" deleted successfully`,
           variant: "default",
@@ -1047,7 +1044,7 @@ export default function InventoryManagement() {
         setItemToEdit(null);
         console.log("Item updated successfully:", result.item);
         
-      toast({
+        toast({
           title: "✅ Success",
           description: `Item "${result.item.item_name}" updated successfully`,
           variant: "default",
@@ -1074,231 +1071,30 @@ export default function InventoryManagement() {
     }
   };
 
-  // Add this useEffect to update filtered items when showLowStockOnly changes
-  useEffect(() => {
-    if (showLowStockOnly) {
-      setFilteredItems(lowStockItems);
-      // Reset to page 1 when filtering to low stock only
-      setCurrentPage(1);
-    } else {
-      // Apply normal filters to the full dataset
-      let filtered = [...fullInventoryData];
-      
-      // Apply filters
-      if (selectedState && selectedState !== "all") {
-        filtered = filtered.filter((item) => item.state === selectedState);
-      }
-      
-      if (selectedDistrict && selectedDistrict !== "all") {
-        filtered = filtered.filter((item) => item.district === selectedDistrict);
-      }
-      
-      if (selectedDepartment && selectedDepartment !== "all") {
-        filtered = filtered.filter((item) => item.department_type === selectedDepartment);
-      }
-      
-      setFilteredItems(filtered);
-    }
-  }, [showLowStockOnly, fullInventoryData, lowStockItems, selectedState, selectedDistrict, selectedDepartment]);
-
-  // Modify the existing filter effect to not overwrite when showing low stock only
-  useEffect(() => {
-    if (showLowStockOnly) {
-      // Skip normal filtering when showing low stock only
-      return;
-    }
-    
-    console.log("Applying filters to full dataset:", {
-      state: selectedState,
-      district: selectedDistrict,
-      department: selectedDepartment
-    });
-    
-    // Start with the full dataset
-    let filtered = [...fullInventoryData];
-    
-    // Apply filters
-    if (selectedState && selectedState !== "all") {
-      console.log(`Filtering by state: ${selectedState}`);
-      filtered = filtered.filter((item) => item.state === selectedState);
-    }
-    
-    if (selectedDistrict && selectedDistrict !== "all") {
-      console.log(`Filtering by district: ${selectedDistrict}`);
-      filtered = filtered.filter((item) => item.district === selectedDistrict);
-    }
-    
-    if (selectedDepartment && selectedDepartment !== "all") {
-      console.log(`Filtering by department: ${selectedDepartment}`);
-      filtered = filtered.filter((item) => item.department_type === selectedDepartment);
-    }
-    
-    console.log(`After filtering: ${filtered.length} items remain`);
-    setFilteredItems(filtered);
-    
-  }, [fullInventoryData, selectedState, selectedDistrict, selectedDepartment, showLowStockOnly]);
-
-  // Toggle function for showing low stock items
-  const toggleLowStockView = () => {
-    // If turning off low stock view, also clear filters
-    if (showLowStockOnly) {
-      setSelectedState("all");
-      setSelectedDistrict("all");
-      setSelectedDepartment("all");
-    }
-    
-    setShowLowStockOnly(!showLowStockOnly);
-    
-    toast({
-      title: showLowStockOnly ? "Showing All Items" : "Showing Low Stock Items",
-      description: showLowStockOnly 
-        ? "Returned to viewing all inventory items" 
-        : `Filtered to ${lowStockItems.length} items with quantity below ${LOW_STOCK_THRESHOLD}`,
-      duration: 3000,
-    });
-  };
-
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <motion.div
-        className="w-64 bg-lime-50 dark:bg-black border-r border-lime-200 dark:border-zinc-800 hidden md:block"
-        initial={{ x: -100, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="p-4 border-b border-lime-200 dark:border-zinc-800">
-          <h2 className="text-xl font-bold text-lime-900 dark:text-lime-400 flex items-center">
-            <Package2 className="mr-2 h-5 w-5" />
-            Inventory System
-          </h2>
-        </div>
-        <div className="p-4">
-          <nav className="space-y-2">
-            <a
-              href="#"
-              className="flex items-center p-2 rounded-md text-lime-900 dark:text-white bg-lime-200 dark:bg-zinc-800"
-            >
-              <Package className="mr-2 h-5 w-5" />
-              Inventory
-            </a>
-            <a
-              href="#"
-              className="flex items-center p-2 rounded-md text-lime-700 dark:text-zinc-400 hover:bg-lime-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <ShoppingCart className="mr-2 h-5 w-5" />
-              Orders
-            </a>
-            <a
-              href="#"
-              className="flex items-center p-2 rounded-md text-lime-700 dark:text-zinc-400 hover:bg-lime-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <Users className="mr-2 h-5 w-5" />
-              Suppliers
-            </a>
-            <a
-              href="#"
-              className="flex items-center p-2 rounded-md text-lime-700 dark:text-zinc-400 hover:bg-lime-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <Building className="mr-2 h-5 w-5" />
-              Departments
-            </a>
-            <a
-              href="#"
-              className="flex items-center p-2 rounded-md text-lime-700 dark:text-zinc-400 hover:bg-lime-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <BarChart3 className="mr-2 h-5 w-5" />
-              Reports
-            </a>
-            <a
-              href="#"
-              className="flex items-center p-2 rounded-md text-lime-700 dark:text-zinc-400 hover:bg-lime-100 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <Settings className="mr-2 h-5 w-5" />
-              Settings
-            </a>
-          </nav>
-        </div>
-        <div className="absolute bottom-0 p-4 w-64">
-          <div className="p-4 bg-lime-100 dark:bg-zinc-800 rounded-lg">
-            <div className="flex items-center space-x-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              <span className="font-medium text-lime-900 dark:text-white">Low Stock Alert</span>
-            </div>
-            <p className="text-sm text-lime-700 dark:text-zinc-300">
-              You have {lowStockItems.length} item{lowStockItems.length !== 1 ? 's' : ''} with critically low stock levels.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleLowStockView}
-              className="mt-2 w-full bg-lime-200 dark:bg-zinc-700 hover:bg-lime-300 dark:hover:bg-zinc-600"
-            >
-              {showLowStockOnly ? "Show All Items" : "View Low Stock Items"}
-            </Button>
-          </div>
-        </div>
-      </motion.div>
-
+    <div className="w-full h-full overflow-auto bg-primaryBlue-50">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white dark:bg-black border-b border-lime-200 dark:border-zinc-800 p-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Button variant="ghost" size="icon" className="md:hidden mr-2">
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle menu</span>
-            </Button>
-            <motion.h1
-              className="text-2xl font-bold text-lime-900 dark:text-white"
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              Inventory Management
-            </motion.h1>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5" />
-              <span className="sr-only">Notifications</span>
-            </Button>
-            <ThemeToggle />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                  <Avatar>
-                    <AvatarImage src="/placeholder.svg" alt="User" />
-                    <AvatarFallback>AD</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Profile</DropdownMenuItem>
-                <DropdownMenuItem>Settings</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Logout</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </header>
+      <div className="flex-1 flex flex-col h-full">
+        <main className="flex-1 overflow-auto p-4 bg-white">
 
-        <main className="flex-1 overflow-auto p-6 bg-lime-50 dark:bg-black">
+          {/* Filters */}
+
           {/* Filters */}
           <motion.div
-            className="bg-white dark:bg-zinc-900 rounded-lg shadow-md p-4 mb-6"
+            className="bg-white rounded-lg shadow-sm border border-primaryBlue-200 p-4 mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
             <div className="flex items-center mb-4">
-              <Filter className="mr-2 h-5 w-5 text-lime-700 dark:text-lime-400" />
-              <h2 className="text-xl font-semibold text-lime-900 dark:text-white">Filters</h2>
+              <Filter className="mr-2 h-5 w-5 text-primaryBlue-600" />
+              <h2 className="text-xl font-semibold text-primaryBlue-900">Filters</h2>
               {(selectedState || selectedDistrict || selectedDepartment) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={resetFilters}
-                  className="ml-auto flex items-center gap-1 text-lime-700 dark:text-lime-400 hover:text-lime-900 hover:dark:text-white"
+                  className="ml-auto flex items-center gap-1 text-primaryBlue-600 hover:text-primaryBlue-700 transition-colors"
                 >
                   <X className="h-4 w-4" />
                   Clear
@@ -1389,24 +1185,6 @@ export default function InventoryManagement() {
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div className="relative w-full overflow-auto">
-              {showLowStockOnly && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 border-b border-yellow-200 dark:border-yellow-900/30 flex items-center justify-between">
-                  <div className="flex items-center">
-                    <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2" />
-                    <span className="text-yellow-700 dark:text-yellow-400 font-medium">
-                      Showing {filteredItems.length} items with low stock (quantity below {LOW_STOCK_THRESHOLD})
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleLowStockView}
-                    className="border-yellow-200 dark:border-yellow-700 bg-white dark:bg-zinc-800 text-yellow-700 dark:text-yellow-400"
-                  >
-                    Show All Items
-                  </Button>
-                </div>
-              )}
               <Table>
                 <TableHeader>
                   <TableRow className="bg-lime-50 dark:bg-zinc-800 hover:bg-lime-50 dark:hover:bg-zinc-800">

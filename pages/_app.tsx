@@ -1,7 +1,7 @@
 import '@/styles/globals.css'
 import type { AppProps } from 'next/app'
 import { useEffect } from 'react'
-import { ThemeProvider } from '@/components/theme-provider'
+import { ThemeProvider } from '@/app/inventory/components/ui/theme-provider'
 
 export default function App({ Component, pageProps }: AppProps) {
   // Check environment variables on startup

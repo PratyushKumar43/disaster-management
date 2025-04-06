@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, Session, AuthError } from '@supabase/supabase-js';
 
 // Singleton instance
 let supabaseInstance: any = null;
@@ -30,15 +30,33 @@ export function getSupabaseClient() {
   console.log('Creating new Supabase client instance');
   
   try {
-    // Create with persistSession: false to avoid GoTrueClient warnings
-    // Add additional options for better stability
+    // Create with improved options for reliability and error handling
     supabaseInstance = createClient(supabaseUrl, supabaseKey, {
       auth: {
         persistSession: false,
-        autoRefreshToken: false
+        autoRefreshToken: true, // Enable token refresh for more reliable authentication
+        storageKey: 'supabase-auth-token', // Explicit storage key
+        detectSessionInUrl: false // Disable automatic detection which can cause issues
       },
       db: {
         schema: 'public'
+      },
+      global: {
+        headers: {
+          'x-application-name': 'disaster-management-app' // Custom header for tracking/debugging
+        },
+        fetch: (url, options = {}) => {
+          // Add timeout to prevent hanging requests
+          const timeoutController = new AbortController();
+          const timeoutId = setTimeout(() => timeoutController.abort(), 30000); // 30 second timeout
+          
+          return fetch(url, {
+            ...options,
+            signal: timeoutController.signal
+          }).finally(() => {
+            clearTimeout(timeoutId);
+          });
+        }
       }
     });
     
@@ -62,5 +80,32 @@ export function getSupabaseClient() {
   }
 }
 
+// Create a client instance with error handling
+let supabaseClient;
+
+try {
+  // Create the client
+  supabaseClient = getSupabaseClient();
+  
+  // Basic diagnostic check (non-blocking)
+  supabaseClient.auth.getSession().then(({ data, error }: { data: { session: Session | null }, error: AuthError | null }) => {
+    if (error) {
+      console.warn('Supabase authentication diagnostic check failed:', error.message);
+    } else {
+      console.log('Supabase client initialized successfully');
+    }
+  }).catch((err: Error) => {
+    console.warn('Supabase diagnostic check exception:', err.message);
+  });
+} catch (error) {
+  console.error('Critical error initializing Supabase client:', error);
+  // Use fallback with basic settings
+  supabaseClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+    { auth: { persistSession: false } }
+  );
+}
+
 // Export a default client for convenience
-export const supabase = getSupabaseClient(); 
+export const supabase = supabaseClient; 

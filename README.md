@@ -24,6 +24,7 @@ The Disaster Management Inventory System is a web-based application designed to 
 - **React**: Frontend library for building user interfaces
 - **Shadcn UI Components**: Custom UI component library
 - **Framer Motion**: Animation library for UI transitions
+- **Weather API**: Integration with Indian Weather API for real-time weather data
 
 ### Backend
 - **Supabase**: PostgreSQL database with built-in authentication
@@ -64,12 +65,20 @@ For more complex operations or as fallbacks, the application uses Next.js API ro
 - Pagination for handling large datasets
 - Form validation for data entry
 
+### Weather Monitoring
+- Real-time weather data for disaster-prone areas
+- Weather alerts and warnings
+- Historical weather data analysis
+- Location-based weather forecasts
+
 ## Environment Configuration
 
 The application requires the following environment variables:
 - `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Public anonymous key for client-side access
 - `SUPABASE_SERVICE_ROLE_KEY`: Private service role key for admin operations
+- `NEXT_PUBLIC_WEATHER_API_KEY`: API key for weather service
+- `WEATHER_API_BASE_URL`: Base URL for weather API endpoints
 
 ## Database Structure
 
@@ -146,3 +155,58 @@ The system implements multiple fallback strategies:
 ### Database Setup
 1. Create an `inventory` table in Supabase with the fields mentioned above
 2. Set up Row Level Security policies as described in `/pages/api/fix-rls.ts`
+3. Run initial seed data scripts if available in the `/scripts` directory
+4. Verify database connections through the Supabase dashboard
+
+## UI Styling
+
+The application uses Tailwind CSS for styling:
+
+- **Tailwind CSS**: Utility-first CSS framework
+- **Custom Theme**: Defined in global CSS variables using HSL color format
+- **Responsive Design**: Mobile-first approach with breakpoints for different screen sizes
+- **Dark/Light Modes**: Theme switching capabilities
+
+See `docs/ui-theme.md` for detailed theme documentation.
+
+## Deployment
+
+### Vercel Deployment
+1. Connect your GitHub repository to Vercel
+2. Set the required environment variables in the Vercel dashboard
+3. Deploy with the following settings:
+   - Framework Preset: Next.js
+   - Build Command: `npm run build`
+   - Output Directory: `.next`
+
+### Manual Deployment
+1. Build the production version
+   ```
+   npm run build
+   ```
+2. Start the production server
+   ```
+   npm start
+   ```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+### Code Style Guidelines
+- Follow TypeScript best practices
+- Use ES6+ features where appropriate
+- Format code with Prettier
+- Follow the existing component structure
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Contact
+
+Project Link: [https://github.com/yourusername/disaster-management](https://github.com/yourusername/disaster-management)
